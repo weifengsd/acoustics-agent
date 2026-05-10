@@ -2,7 +2,7 @@
 
 `acoustics-agent` is a modern framework for underwater acoustics, designed for both high-performance physical simulation and seamless AI orchestration. At its core is **pyacoustics**, a high-performance, pure-Python modernization of the legacy Acoustics Toolbox.
 
-**Official Website**: [https://uacomm.com](https://uacomm.com)
+**Official Website**: [http://uacomm.com](http://uacomm.com)
 
 ## 🚀 Key Features
 - **High Performance**: Numba-accelerated ray tracing (**pyacoustics** engine) reaching 1000+ rays/sec.
