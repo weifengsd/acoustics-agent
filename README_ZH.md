@@ -2,6 +2,8 @@
 
 `acoustics-agent` 是一个现代化的水声仿真框架，旨在结合高性能物理计算与无缝的 AI 编排。其核心引擎为 **pyacoustics** —— 这是一个对传统 Acoustics Toolbox 的高性能纯 Python 重构。
 
+**官方网站**: [https://uacomm.com](https://uacomm.com)
+
 ## 🚀 核心特性
 - **高性能**：基于 Numba 加速的 **pyacoustics** 引擎，射线追踪速度可达 1000+ 条射线/秒。
 - **AI 原生**：内置模块化的 "Skills" 库，专为大语言模型 (LLM) 的自动化编排而设计。
