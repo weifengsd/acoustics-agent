@@ -1,0 +1,35 @@
+# Example Simulation Configuration
+# This file demonstrates a typical Munk profile simulation.
+
+project: "Example Munk Simulation"
+frequency: 50.0
+
+environment:
+  ssp:
+    type: "c-linear"
+    data:
+      - {depth: 0.0, c: 1548.52}
+      - {depth: 1000.0, c: 1501.38}
+      - {depth: 5000.0, c: 1551.91}
+  bottom:
+    type: "acousto-elastic"
+    depth: 5000.0
+    c_p: 1600.0
+    density: 1.8
+    attenuation_p: 0.5
+  surface:
+    type: "vacuum"
+    depth: 0.0
+
+geometry:
+  source:
+    depths: [1000.0]
+  receivers:
+    ranges: [0.0, 50000.0]
+    depths: [0.0, 5000.0]
+
+solver:
+  type: "bellhop"
+  angles: [-20.0, 20.0]
+  num_beams: 1000
+  step_size: 10.0

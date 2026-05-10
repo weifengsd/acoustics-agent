@@ -1,0 +1,40 @@
+environment:
+  bottom:
+    attenuation_p: 0.5
+    c_p: 2500.0
+    density: 1.0
+    depth: 200.0
+    type: acousto-elastic
+  ssp:
+    data:
+    - c: 1500.0
+      depth: 0.0
+    - c: 1500.0
+      depth: 50.0
+    - c: 2500.0
+      depth: 50.1
+    - c: 2500.0
+      depth: 200.0
+    type: c-linear
+  surface:
+    type: vacuum
+frequency: 100.0
+geometry:
+  receivers:
+    depths:
+    - 0.0
+    - 200.0
+    ranges:
+    - 0.0
+    - 1000.0
+  source:
+    depths:
+    - 0.0
+project: Head Wave
+solver:
+  angles:
+  - -89.0
+  - 89.0
+  num_beams: 2000
+  step_size: 0.0
+  type: bellhop

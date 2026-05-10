@@ -1,0 +1,40 @@
+environment:
+  bottom:
+    attenuation_p: 0.5
+    c_p: 1607.0
+    density: 1.95
+    depth: 216.0
+    type: acousto-elastic
+  ssp:
+    data:
+    - c: 1500.3
+      depth: 0.0
+    - c: 1500.2
+      depth: 25.0
+    - c: 1493.8
+      depth: 75.0
+    - c: 1487.36
+      depth: 216.0
+    type: spline
+  surface:
+    type: vacuum
+frequency: 200.0
+geometry:
+  receivers:
+    depths:
+    - 0.0
+    - 216.0
+    ranges:
+    - 0.0
+    - 10000.0
+  source:
+    depths:
+    - 30.0
+project: SBCX
+solver:
+  angles:
+  - -11.0
+  - 11.0
+  num_beams: 2000
+  step_size: 0.0
+  type: bellhop

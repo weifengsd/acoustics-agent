@@ -1,0 +1,78 @@
+environment:
+  bottom:
+    attenuation_p: 0.5
+    c_p: 1506.5
+    density: 1.0
+    depth: 3000.0
+    type: acousto-elastic
+  ssp:
+    data:
+    - c: 1476.7
+      depth: 0.0
+    - c: 1476.7
+      depth: 38.0
+    - c: 1472.6
+      depth: 50.0
+    - c: 1468.8
+      depth: 70.0
+    - c: 1467.2
+      depth: 100.0
+    - c: 1471.6
+      depth: 140.0
+    - c: 1473.6
+      depth: 160.0
+    - c: 1473.6
+      depth: 170.0
+    - c: 1472.7
+      depth: 200.0
+    - c: 1472.2
+      depth: 215.0
+    - c: 1471.6
+      depth: 250.0
+    - c: 1471.6
+      depth: 300.0
+    - c: 1472.0
+      depth: 370.0
+    - c: 1472.7
+      depth: 450.0
+    - c: 1473.1
+      depth: 500.0
+    - c: 1474.9
+      depth: 700.0
+    - c: 1477.0
+      depth: 900.0
+    - c: 1478.1
+      depth: 1000.0
+    - c: 1480.7
+      depth: 1250.0
+    - c: 1483.8
+      depth: 1500.0
+    - c: 1490.5
+      depth: 2000.0
+    - c: 1498.3
+      depth: 2500.0
+    - c: 1506.5
+      depth: 3000.0
+    type: spline
+  surface:
+    type: vacuum
+frequency: 230.0
+geometry:
+  receivers:
+    depths:
+    - 0.0
+    - 3000.0
+    ranges:
+    - 0.0
+    - 100000.0
+  source:
+    depths:
+    - 18.0
+project: Dickins Flat
+solver:
+  angles:
+  - -45.0
+  - 45.0
+  num_beams: 2000
+  step_size: 0.0
+  type: bellhop

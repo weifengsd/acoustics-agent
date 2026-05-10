@@ -1,0 +1,33 @@
+environment:
+  bottom:
+    depth: 100.0
+    type: rigid
+  ssp:
+    data:
+    - c: 1500.0
+      depth: 0.0
+    - c: 1500.0
+      depth: 100.0
+    type: c-linear
+  surface:
+    type: vacuum
+frequency: 100.0
+geometry:
+  receivers:
+    depths:
+    - 0.0
+    - 100.0
+    ranges:
+    - 0.0
+    - 5000.0
+  source:
+    depths:
+    - 50.0
+project: Rigid Pekeris
+solver:
+  angles:
+  - -45.0
+  - 45.0
+  num_beams: 2000
+  step_size: 0.0
+  type: bellhop

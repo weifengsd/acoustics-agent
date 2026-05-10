@@ -1,0 +1,70 @@
+environment:
+  bottom:
+    attenuation_p: 0.5
+    c_p: 1523.9
+    density: 1.0
+    depth: 4000.0
+    type: acousto-elastic
+  ssp:
+    data:
+    - c: 1497.0
+      depth: 0.0
+    - c: 1502.0
+      depth: 250.0
+    - c: 1485.0
+      depth: 300.0
+    - c: 1478.0
+      depth: 375.0
+    - c: 1477.0
+      depth: 425.0
+    - c: 1476.0
+      depth: 500.0
+    - c: 1476.5
+      depth: 600.0
+    - c: 1477.0
+      depth: 700.0
+    - c: 1478.0
+      depth: 810.0
+    - c: 1479.0
+      depth: 900.0
+    - c: 1480.0
+      depth: 1000.0
+    - c: 1481.0
+      depth: 1100.0
+    - c: 1482.0
+      depth: 1180.0
+    - c: 1484.0
+      depth: 1340.0
+    - c: 1487.0
+      depth: 1600.0
+    - c: 1490.0
+      depth: 1800.0
+    - c: 1498.7
+      depth: 2500.0
+    - c: 1506.8
+      depth: 3000.0
+    - c: 1523.9
+      depth: 4000.0
+    type: c-linear
+  surface:
+    type: vacuum
+frequency: 200.0
+geometry:
+  receivers:
+    depths:
+    - 0.0
+    - 4000.0
+    ranges:
+    - 0.0
+    - 80000.0
+  source:
+    depths:
+    - 25.0
+project: Sduct Leaky
+solver:
+  angles:
+  - -10.0
+  - 10.0
+  num_beams: 2000
+  step_size: 0.0
+  type: bellhop

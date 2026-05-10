@@ -1,0 +1,42 @@
+environment:
+  bottom:
+    attenuation_p: 0.5
+    c_p: 1600.0
+    density: 1.8
+    depth: 4000.0
+    type: acousto-elastic
+  ssp:
+    data:
+    - c: 1530.0
+      depth: 0.0
+    - c: 1500.0
+      depth: 500.0
+    - c: 1480.0
+      depth: 1000.0
+    - c: 1510.0
+      depth: 2500.0
+    - c: 1540.0
+      depth: 4000.0
+    type: spline
+  surface:
+    type: vacuum
+frequency: 1000.0
+geometry:
+  receivers:
+    depths:
+    - 0.0
+    - 4000.0
+    ranges:
+    - 0.0
+    - 500000.0
+  source:
+    depths:
+    - 1000.0
+project: Sim_deep_water
+solver:
+  angles:
+  - -15.0
+  - 15.0
+  num_beams: 2000
+  step_size: 10.0
+  type: bellhop

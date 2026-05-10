@@ -1,0 +1,33 @@
+environment:
+  bottom:
+    depth: 5000.0
+    type: vacuum
+  ssp:
+    data:
+    - c: 1500.0
+      depth: 0.0
+    - c: 1500.0
+      depth: 5000.0
+    type: c-linear
+  surface:
+    type: vacuum
+frequency: 5000.0
+geometry:
+  receivers:
+    depths:
+    - 0.0
+    - 5000.0
+    ranges:
+    - 0.0
+    - 5000.0
+  source:
+    depths:
+    - 2500.0
+project: Thorp Volume Absorption
+solver:
+  angles:
+  - -89.0
+  - 89.0
+  num_beams: 2000
+  step_size: 0.0
+  type: bellhop

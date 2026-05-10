@@ -1,0 +1,36 @@
+environment:
+  bottom:
+    attenuation_p: 0.5
+    c_p: 1590.0
+    density: 1.2
+    depth: 100.0
+    type: acousto-elastic
+  ssp:
+    data:
+    - c: 1500.0
+      depth: 0.0
+    - c: 1500.0
+      depth: 100.0
+    type: c-linear
+  surface:
+    type: vacuum
+frequency: 250.0
+geometry:
+  receivers:
+    depths:
+    - 0.0
+    - 100.0
+    ranges:
+    - 0.0
+    - 5000.0
+  source:
+    depths:
+    - 50.0
+project: Pekeris Calib
+solver:
+  angles:
+  - -89.0
+  - 89.0
+  num_beams: 2000
+  step_size: 0.0
+  type: bellhop

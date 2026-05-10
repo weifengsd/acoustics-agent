@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "acoustics-agent"
+version = "0.1.0"
+description = "AI-Native Underwater Acoustic Simulation Framework"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "numba>=0.57.0",
+    "pyyaml>=6.0",
+    "matplotlib>=3.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+    "black",
+    "isort",
+    "flake8"
+]
+
+[tool.setuptools]
+packages = ["pyacoustics", "pyacoustics.solvers", "pyacoustics.solvers.bellhop", "pyacoustics.solvers.kraken", "skills"]

@@ -1,0 +1,46 @@
+environment:
+  bottom:
+    attenuation_p: 0.5
+    c_p: 1510.4
+    density: 1.0
+    depth: 3750.0
+    type: acousto-elastic
+  ssp:
+    data:
+    - c: 1436.0
+      depth: 0.0
+    - c: 1458.4
+      depth: 200.0
+    - c: 1460.5
+      depth: 300.0
+    - c: 1466.7
+      depth: 1000.0
+    - c: 1479.6
+      depth: 2000.0
+    - c: 1487.9
+      depth: 2500.0
+    - c: 1510.4
+      depth: 3750.0
+    type: spline
+  surface:
+    type: vacuum
+frequency: 200.0
+geometry:
+  receivers:
+    depths:
+    - 0.0
+    - 3750.0
+    ranges:
+    - 0.0
+    - 100000.0
+  source:
+    depths:
+    - 100.0
+project: Arctic
+solver:
+  angles:
+  - -16.7
+  - 16.7
+  num_beams: 2000
+  step_size: 0.0
+  type: bellhop

@@ -1,0 +1,40 @@
+environment:
+  bottom:
+    attenuation_p: 0.5
+    c_p: 1800.0
+    density: 1.5
+    depth: 5000.0
+    type: acousto-elastic
+  ssp:
+    data:
+    - c: 1548.52
+      depth: 0.0
+    - c: 1501.38
+      depth: 1000.0
+    - c: 1500.12
+      depth: 1400.0
+    - c: 1551.91
+      depth: 5000.0
+    type: spline
+  surface:
+    type: vacuum
+frequency: 100.0
+geometry:
+  receivers:
+    depths:
+    - 0.0
+    - 5000.0
+    ranges:
+    - 0.0
+    - 50000.0
+  source:
+    depths:
+    - 1000.0
+project: Leaky Munk
+solver:
+  angles:
+  - -20.0
+  - 20.0
+  num_beams: 2000
+  step_size: 0.0
+  type: bellhop
