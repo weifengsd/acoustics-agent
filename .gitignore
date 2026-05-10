@@ -33,6 +33,7 @@ ENV/
 
 # Acoustics Agent output and bellhop files
 *.png
+!docs/assets/*.png
 *.shd
 *.prt
 *.env
