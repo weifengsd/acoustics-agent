@@ -92,7 +92,7 @@ The default solver. Key features:
 ### Computational Accuracy
 `acoustics-agent` ensures high computational accuracy by benchmarking against the established Acoustics Toolbox. Below is a comparison of Transmission Loss (TL) calculated by the native Python engine and the legacy Fortran-based AT.
 
-![Accuracy Comparison](calibK_TL_comparison.png)
+![Accuracy Comparison](assets/calibK_TL_comparison.png)
 *Figure 2: Accuracy comparison of Transmission Loss (TL) calculated using Normal Mode analysis. The results from the native Python implementation (PyKraken) show excellent agreement with the legacy Acoustics Toolbox (Kraken).*
 
 ### Legacy Solver (Optional)
