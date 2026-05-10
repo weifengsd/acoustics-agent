@@ -92,7 +92,7 @@ rays = run_sim("test.yaml")
 ### 计算准确性
 `acoustics-agent` 通过与权威的 Acoustics Toolbox 进行对标，确保了极高的计算精度。下图展示了原生 Python 引擎与传统 Fortran 版 AT 计算的传播损失 (TL) 的对比。
 
-![准确性对比](calibK_TL_comparison.png)
+![准确性对比](assets/calibK_TL_comparison.png)
 *图 2：基于简正波 (Normal Mode) 分析计算的传播损失 (TL) 准确性对比。原生 Python 实现 (PyKraken) 与传统 Acoustics Toolbox (Kraken) 的计算结果高度吻合。*
 
 ### 传统求解器 (可选)

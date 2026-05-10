@@ -5,7 +5,7 @@ This guide explains how to use the `acoustics-agent` framework (powered by the `
 ## 1. Visualizing Results
 `acoustics-agent` provides high-quality visualization tools out of the box. Below is an example of a ray tracing simulation and the corresponding Sound Speed Profile (SSP).
 
-![Usage Example](usage_example.png)
+![Usage Example](assets/usage_example.png)
 *Figure 1: Example of ray tracing trajectories in a deep-water environment using the Munk profile. The left panel shows the Sound Speed Profile, and the right panel shows the multipath propagation of acoustic rays.*
 
 ## 2. Configuration (YAML)
