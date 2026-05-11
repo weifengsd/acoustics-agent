@@ -61,19 +61,23 @@ class ExternalSolver:
             
         return shutil.who(exe_name, path=str(self.bin_path)) is not None
 
-    def run_command(self, cmd_args: list[str], cwd: str):
+    def run_command(self, cmd_args: list[str], cwd: str, stdin_input: str = None):
         """Runs the external command and handles errors."""
         try:
             result = subprocess.run(
                 cmd_args, 
-                cwd=cwd, 
+                cwd=cwd,
+                input=stdin_input,
                 capture_output=True, 
                 text=True, 
-                check=True
+                check=False  # We check manually to capture output on failure
             )
+            if result.returncode != 0:
+                error_msg = f"External solver failed (rc={result.returncode}): {result.stderr}\nOutput: {result.stdout}"
+                raise RuntimeError(error_msg)
             return result.stdout
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"External solver failed: {e.stderr}") from e
+        except FileNotFoundError as e:
+            raise RuntimeError(f"Executable not found: {cmd_args[0]}") from e
 
 class BellhopExternal(ExternalSolver):
     """Wrapper for the legacy Bellhop ray tracing solver."""
@@ -115,3 +119,111 @@ class BellhopExternal(ExternalSolver):
             # Here we just return the ray paths for now as standard run() behavior.
             return ray_paths
 
+class KrakenExternal(ExternalSolver):
+    """Wrapper for the legacy Kraken normal mode solver."""
+    
+    def run(self):
+        """
+        Executes legacy Kraken binary and then field binary to get TL.
+        """
+        if not self.is_available("kraken"):
+            raise RuntimeError(f"Legacy kraken executable not found in {self.bin_path}.")
+            
+        from pyacoustics.solvers.external_io import generate_at_kraken_env, generate_at_field_flp, read_at_shd
+        
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            case_name = "legacy_run"
+            env_file = tmp_path / f"{case_name}.env"
+            flp_file = tmp_path / f"{case_name}.flp"
+            
+            # 1. Generate Input Files
+            generate_at_kraken_env(self.config, env_file)
+            generate_at_field_flp(self.config, flp_file)
+            import shutil
+            debug_dir = Path("/Users/fengwei/VibeWorking/Coding/acoustics-agent-app/debug_output")
+            debug_dir.mkdir(exist_ok=True)
+            shutil.copy(env_file, debug_dir / "app_last.env")
+            shutil.copy(flp_file, debug_dir / "app_last.flp")
+            
+
+            
+            # 2. Run Kraken (or Krakenc for complex)
+            # If there's attenuation or complex BC, we should use krakenc
+            is_complex = False
+            if self.config.environment.bottom.attenuation_p > 0:
+                is_complex = True
+            
+            exe_name = "krakenc" if is_complex else "kraken"
+            exe_path = self.bin_path / exe_name
+            if not exe_path.exists():
+                exe_path = self.bin_path / f"{exe_name}.exe"
+                
+            # Fallback to kraken if krakenc not found
+            if not exe_path.exists() and is_complex:
+                exe_path = self.bin_path / "kraken"
+                if not exe_path.exists():
+                    exe_path = self.bin_path / "kraken.exe"
+            
+            # Pass case_name both as argv AND via stdin to maximize compatibility
+            self.run_command(
+                [str(exe_path), case_name], 
+                cwd=str(tmp_path),
+                stdin_input=f"{case_name}\n"
+            )
+            mod_file = tmp_path / f"{case_name}.mod"
+            if mod_file.exists():
+                shutil.copy(mod_file, debug_dir / "app_last.mod")
+            
+
+            
+            # 3. Run Field
+            # field reads its input from the .flp file identified by the case name.
+            # On many AT builds, field reads the case name from stdin (interactive mode).
+            field_exe = self.bin_path / "field"
+            if not field_exe.exists():
+                field_exe = self.bin_path / "field.exe"
+            # Pass case_name both as argv AND via stdin to maximize compatibility
+            field_output = self.run_command(
+                [str(field_exe), case_name],
+                cwd=str(tmp_path),
+                stdin_input=f"{case_name}\n"  # some AT builds expect stdin
+            )
+            
+            # 4. Parse SHD
+            shd_file = tmp_path / f"{case_name}.shd"
+            if not shd_file.exists():
+                # Read PRT file for detailed diagnostics
+                prt_file = tmp_path / f"{case_name}.prt"
+                prt_content = ""
+                if prt_file.exists():
+                    try:
+                        prt_content = f"\nPRT Log Tail:\n{prt_file.read_text()[-2000:]}"
+                    except: pass
+                
+                mod_file = tmp_path / f"{case_name}.mod"
+                if not mod_file.exists():
+                    raise RuntimeError(f"Legacy kraken run failed to generate .mod file. {prt_content}")
+                raise RuntimeError(f"Legacy field run failed to generate .shd file. Check if .flp and .mod files are compatible.\nField Output: {field_output}{prt_content}")
+                 
+            from pyacoustics.solvers.external_io import generate_at_kraken_env, generate_at_field_flp, read_at_shd, read_at_mod
+            
+            # ... (after shd_file.exists check)
+            P, rz, rr = read_at_shd(shd_file)
+            
+            # Also parse MOD file for mode shapes
+            mod_file = tmp_path / f"{case_name}.mod"
+            modes_data, z_bins_mod = read_at_mod(mod_file)
+            
+            # Standard output format: TL (dB) as a 2D array
+            TL = -20 * np.log10(np.abs(P) + 1e-20)
+            
+            return {
+                "tl_grid": TL,
+                "r_bins": rr,
+                "z_bins": rz,
+                "modes": modes_data,
+                "z_bins_mod": z_bins_mod
+            }
+
+import numpy as np # Needed for log10

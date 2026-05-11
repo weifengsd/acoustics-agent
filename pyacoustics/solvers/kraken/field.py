@@ -38,15 +38,11 @@ def compute_field(
         phi_r[m, :] = np.interp(z_r_arr, z_arr, modes[m, :])
         
     # Pre-calculate constant terms
-    # Standard Green's function formulation is 1 / (rho_s * sqrt(8 * pi))
-    # However, to match AT (Acoustics Toolbox) and Bellhop normalization where the 
-    # pressure of a point source at 1 meter is 1.0 (i.e. p = e^{ikr}/r instead of e^{ikr}/(4*pi*r)),
-    # we must multiply by 4*pi. 
-    # 4*pi / sqrt(8*pi) = sqrt(2*pi).
+    # To match AT (Acoustics Toolbox) point source normalization:
+    # The pressure should be multiplied by sqrt(2*pi) / rho_s
+    const_factor = np.sqrt(2.0 * np.pi) / rho_s
     
     pressure = np.zeros((Z, R), dtype=np.complex128)
-    
-    const_factor = np.sqrt(2.0 * np.pi) / rho_s
     
     # Avoid division by zero at r=0
     r_safe = np.where(r_arr == 0, 1e-10, r_arr)

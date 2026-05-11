@@ -6,7 +6,7 @@ from pathlib import Path
 from pyacoustics.config import ConfigLoader
 from pyacoustics.schema import SimulationConfig
 from pyacoustics.solvers.bellhop.core import PyBellhop
-from pyacoustics.solvers.external import ExternalSolver, BellhopExternal
+from pyacoustics.solvers.external import ExternalSolver, BellhopExternal, KrakenExternal
 from pyacoustics.plot import plot_rays
 
 class Simulation:
@@ -41,6 +41,12 @@ class Simulation:
             if self.config.solver.type == "bellhop":
                 solver = BellhopExternal(self.config, bin_path=self.external_solver.bin_path)
                 return solver.run()
+            elif self.config.solver.type == "normal_modes":
+                solver = KrakenExternal(self.config, bin_path=self.external_solver.bin_path)
+                res = solver.run()
+                self._tl_cache = (res['tl_grid'], res['r_bins'], res['z_bins'])
+                self._coherent_tl_cache = self._tl_cache
+                return res
             else:
                 raise NotImplementedError(f"Legacy solver for {self.config.solver.type} not yet implemented.")
 
@@ -80,7 +86,7 @@ class Simulation:
             vmin = kwargs.get('vmin', auto_vmin)
             vmax = kwargs.get('vmax', auto_vmax)
             im = ax.imshow(
-                tl_grid.T, extent=[r_bins[0] / 1000.0, r_bins[-1] / 1000.0, z_bins[-1], 0],
+                tl_grid, extent=[r_bins[0] / 1000.0, r_bins[-1] / 1000.0, z_bins[-1], z_bins[0]],
                 aspect='auto', cmap='jet_r',
                 vmin=vmin, vmax=vmax
             )
@@ -91,10 +97,8 @@ class Simulation:
             plt.tight_layout()
             if save_path:
                 plt.savefig(save_path, dpi=300, bbox_inches='tight')
-            else:
-                plt.show()
-            plt.close(fig)
-            return tl_grid
+            
+            return fig
         else:
             if not hasattr(self, 'ray_paths'):
                 raise RuntimeError("Simulation has not been run yet. Call .run() first.")

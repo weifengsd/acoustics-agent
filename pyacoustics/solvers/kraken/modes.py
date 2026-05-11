@@ -1,6 +1,5 @@
 import numpy as np
 import scipy.linalg
-from numba import njit
 
 def compute_modes(
     roots: np.ndarray, h: float, B1: np.ndarray, 

@@ -70,8 +70,17 @@ class PyKraken:
         roots_base = bisection_search_roots(k2_min, k2_max, h, B1, self.omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type)
         
         if len(roots_base) == 0:
-            # Return empty field if no modes
-            return np.full((100, 200), 100.0)
+            # Return empty results if no modes
+            r_max = max(self.config.geometry.receivers.ranges)
+            r_arr = np.linspace(100.0, r_max, 200)
+            z_r_arr = np.linspace(0, depth_max, 100)
+            return {
+                'tl_grid': np.full((100, 200), 120.0),
+                'r_bins': r_arr,
+                'z_bins': z_r_arr,
+                'modes': np.array([]),
+                'roots': np.array([])
+            }
             
         # 2. Richardson Extrapolation
         mults = self.config.solver.mesh_multiplier
@@ -126,6 +135,7 @@ class PyKraken:
             'tl_grid': TL,
             'r_bins': r_arr,
             'z_bins': z_r_arr,
+            'z_bins_mod': z_arr,
             'modes': modes,
             'roots': final_roots
         }

@@ -14,8 +14,8 @@ def get_auto_clim(TL: np.ndarray) -> Tuple[float, float]:
         return 0.0, 100.0
     
     # Start vmin at a clean 5dB boundary near the 1st percentile
-    vmin = np.floor(np.percentile(valid_tl, 1) / 5.0) * 5.0
-    vmax = vmin + 60.0
+    vmin = float(np.floor(np.percentile(valid_tl, 1) / 5.0) * 5.0)
+    vmax = float(vmin + 60.0)
     
     return vmin, vmax
 
