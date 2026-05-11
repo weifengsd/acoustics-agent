@@ -1,4 +1,6 @@
 import numpy as np
+import matplotlib.pyplot as plt
+
 from typing import Union, Optional, Literal
 from pathlib import Path
 from pyacoustics.config import ConfigLoader
@@ -10,27 +12,32 @@ from pyacoustics.plot import plot_rays
 class Simulation:
     """Top level interface for the pyacoustics engine."""
     
-    def __init__(self, config: Union[str, Path, dict, SimulationConfig], external_bin_path: Optional[str] = None):
+    def __init__(self, config: Union[str, Path, dict, SimulationConfig], 
+                 external_bin_path: Optional[str] = None,
+                 mode: Literal["native", "legacy"] = "native"):
+        self.mode = mode
         if isinstance(config, (str, Path)):
-            self.config = ConfigLoader.load_yaml(config)
+            from pyacoustics.config import ConfigLoader
+            self.config = ConfigLoader.load_yaml(str(config))
         elif isinstance(config, dict):
+            from pyacoustics.config import ConfigLoader
             self.config = ConfigLoader.from_dict(config)
-        elif isinstance(config, SimulationConfig):
-            self.config = config
-        else:
-            raise TypeError("Config must be a path, dict, or SimulationConfig object.")
-            
-        self.external_solver = ExternalSolver(self.config, bin_path=external_bin_path)
 
-    def run(self, mode: Literal["native", "legacy"] = "native"):
+        else:
+            self.config = config
+            
+        from pyacoustics.solvers.external import ExternalSolver
+        self.external_solver = ExternalSolver(self.config, bin_path=external_bin_path)
+        self.ray_paths = None
+        self._tl_cache = None
+        self._coherent_tl_cache = None
+
+    def run(self, mode: Optional[Literal["native", "legacy"]] = None):
         """
         Runs the simulation based on the loaded configuration.
-        
-        Args:
-            mode: "native" for the pure-Python implementation, 
-                  "legacy" for the external Fortran-based AT binaries.
         """
-        if mode == "legacy":
+        run_mode = mode if mode is not None else self.mode
+        if run_mode == "legacy":
             if self.config.solver.type == "bellhop":
                 solver = BellhopExternal(self.config, bin_path=self.external_solver.bin_path)
                 return solver.run()
@@ -121,25 +128,69 @@ class Simulation:
     def compute_coherent_tl(self, num_r: int = 200, num_z: int = 100, save_path: str = None, r_grid: np.ndarray = None, z_grid: np.ndarray = None):
         """
         Computes the coherent Transmission Loss field using Gaussian Beam Summation.
-        
-        This method traces beams (not just rays) and sums their Gaussian-weighted
-        contributions to produce a physically accurate, phase-coherent TL field.
-        
-        Parameters:
-            num_r: number of range grid points (ignored if r_grid is provided)
-            num_z: number of depth grid points (ignored if z_grid is provided)
-            save_path: optional path to save the TL plot
-            r_grid: optional custom range grid (1D float64 array)
-            z_grid: optional custom depth grid (1D float64 array)
+        """
+        r_max = max(self.config.geometry.receivers.ranges)
+        z_max = self.config.environment.bottom.depth
+        if r_grid is None:
+            r_grid = np.linspace(100.0, r_max, num_r)
+        if z_grid is None:
+            z_grid = np.linspace(0.0, z_max, num_z)
+
+        if self.mode == "legacy":
+            if self.config.solver.type != "bellhop":
+                raise NotImplementedError("Legacy coherent TL only implemented for Bellhop.")
             
-        Returns:
-            TL: 2D numpy array of transmission loss values (dB)
-         """
-        import numpy as np
-        import matplotlib.pyplot as plt
+            import tempfile
+            import subprocess
+            from pyacoustics.solvers.external_io import generate_at_bellhop_env, read_at_shd
+            
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_path = Path(tmp_dir)
+                env_file = tmp_path / "legacy_run.env"
+                
+                orig_rr = self.config.geometry.receivers.ranges
+                orig_rd = self.config.geometry.receivers.depths
+                
+                try:
+                    self.config.geometry.receivers.ranges = r_grid.tolist()
+                    self.config.geometry.receivers.depths = z_grid.tolist()
+                    
+                    generate_at_bellhop_env(self.config, env_file)
+                    with open(env_file, 'r') as f:
+                        lines = f.readlines()
+                    for i, line in enumerate(lines):
+                        if line.strip() in ["'R'", "'A'", "'C'"]:
+                            if i > 10: 
+                                 lines[i] = "'C'\n"
+                                 break
+                    with open(env_file, 'w') as f:
+                        f.writelines(lines)
+
+                    exe_path = self.external_solver.bin_path / "bellhop"
+                    if not exe_path.exists():
+                        exe_path = self.external_solver.bin_path / "bellhop.exe"
+                    
+                    subprocess.run([str(exe_path), "legacy_run"], cwd=str(tmp_path), capture_output=True, check=True)
+                    
+                    shd_file = tmp_path / "legacy_run.shd"
+                    if not shd_file.exists():
+                        raise RuntimeError("Legacy bellhop failed to produce .shd file.")
+                    
+                    P, rz_shd, rr_shd = read_at_shd(shd_file)
+                    TL = -20 * np.log10(np.abs(P) + 1e-20)
+                    TL = TL.T # To match (r, z)
+                    
+                    self._coherent_tl_cache = (TL, r_grid, z_grid)
+                    return TL
+                finally:
+                    self.config.geometry.receivers.ranges = orig_rr
+                    self.config.geometry.receivers.depths = orig_rd
+
 
         solver = PyBellhop(self.config)
+
         beam_data = solver.run_beam_tracing()
+
 
         r_max = max(self.config.geometry.receivers.ranges)
         z_max = self.config.environment.bottom.depth
@@ -218,10 +269,60 @@ class Simulation:
     def run_arrivals(self, range_m: float, depth_m: float):
         """
         Extracts multi-path arrival information at a specific receiver location.
-        Returns a list of dicts containing tau, amplitude, and angles.
         """
+        if self.mode == "legacy":
+            if self.config.solver.type != "bellhop":
+                raise NotImplementedError("Legacy arrivals analysis is currently only supported for Bellhop.")
+            
+            import tempfile
+            import subprocess
+            from pyacoustics.solvers.external_io import generate_at_bellhop_env, read_at_arr
+            
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_path = Path(tmp_dir)
+                env_file = tmp_path / "legacy_run.env"
+                
+                # 1. Update config geometry to match the single receiver requested
+                # (Bellhop .arr output depends on the .env receiver grid)
+                orig_rd = self.config.geometry.receivers.depths
+                orig_rr = self.config.geometry.receivers.ranges
+                self.config.geometry.receivers.depths = [depth_m]
+                self.config.geometry.receivers.ranges = [range_m]
+                
+                try:
+                    generate_at_bellhop_env(self.config, env_file)
+                    # Force Arrivals mode 'A'
+                    with open(env_file, 'r') as f:
+                        lines = f.readlines()
+                    for i, line in enumerate(lines):
+                        if line.strip() in ["'R'", "'C'", "'A'"]:
+                            if i > 10:
+                                lines[i] = "'A'\n"
+                                break
+                    with open(env_file, 'w') as f:
+                        f.writelines(lines)
+
+                    # 2. Run Bellhop
+                    exe_path = self.external_solver.bin_path / "bellhop"
+                    if not exe_path.exists():
+                        exe_path = self.external_solver.bin_path / "bellhop.exe"
+                    
+                    subprocess.run([str(exe_path), "legacy_run"], cwd=str(tmp_path), capture_output=True, check=True)
+                    
+                    # 3. Read .arr
+                    arr_file = tmp_path / "legacy_run.arr"
+                    if not arr_file.exists():
+                        raise RuntimeError("Legacy bellhop failed to produce .arr file.")
+                    
+                    return read_at_arr(arr_file)
+                finally:
+                    # Restore original config
+                    self.config.geometry.receivers.depths = orig_rd
+                    self.config.geometry.receivers.ranges = orig_rr
+
         if self.config.solver.type != "bellhop":
             raise NotImplementedError("Arrivals analysis is currently only supported for Bellhop.")
         
         from pyacoustics.solvers.bellhop.arrivals import compute_arrivals
         return compute_arrivals(self.config, range_m, depth_m)
+
