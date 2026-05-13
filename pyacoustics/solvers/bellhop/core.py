@@ -32,7 +32,13 @@ class PyBellhop:
 
     def _prepare_ssp_arrays(self):
         """Prepare SSP arrays for Numba-compiled functions."""
-        ssp_type_int = 0 if self.ssp_interp.type == "c-linear" else 1
+        if self.ssp_interp.type == "c-linear":
+            ssp_type_int = 0
+        elif self.ssp_interp.type == "spline":
+            ssp_type_int = 1
+        else: # n2-linear
+            ssp_type_int = 2
+            
         z_arr = self.ssp_interp.z_arr
         c_arr = self.ssp_interp.c_arr
         c_coeffs = self.ssp_interp.c_coeffs if self.ssp_interp.c_coeffs is not None else np.zeros((4, 1))
@@ -47,11 +53,13 @@ class PyBellhop:
             # Auto-calculate optimal number of beams (Bellhop logic)
             z_src = self.config.geometry.source.depths[0]
             ssp_type_int, z_arr, c_arr, c_coeffs = self._prepare_ssp_arrays()
-            from pyacoustics.environment import evaluate_linear_ssp, evaluate_spline_ssp
+            from pyacoustics.environment import evaluate_linear_ssp, evaluate_spline_ssp, evaluate_n2linear_ssp
             if ssp_type_int == 0:
                 c_src, _, _ = evaluate_linear_ssp(z_src, z_arr, c_arr)
-            else:
+            elif ssp_type_int == 1:
                 c_src, _, _ = evaluate_spline_ssp(z_src, z_arr, c_coeffs)
+            else:
+                c_src, _, _ = evaluate_n2linear_ssp(z_src, z_arr, c_arr)
             
             freq = self.config.frequency
             r_max = self.r_max if self.r_max > 0 else 1000.0
@@ -114,11 +122,13 @@ class PyBellhop:
         z_src = self.config.geometry.source.depths[0]
 
         # Get source sound speed
-        from pyacoustics.environment import evaluate_linear_ssp, evaluate_spline_ssp
+        from pyacoustics.environment import evaluate_linear_ssp, evaluate_spline_ssp, evaluate_n2linear_ssp
         if ssp_type_int == 0:
             c_src, _, _ = evaluate_linear_ssp(z_src, z_arr, c_arr)
-        else:
+        elif ssp_type_int == 1:
             c_src, _, _ = evaluate_spline_ssp(z_src, z_arr, c_coeffs)
+        else:
+            c_src, _, _ = evaluate_n2linear_ssp(z_src, z_arr, c_arr)
 
         num_beams = len(angles)
 

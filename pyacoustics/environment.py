@@ -8,20 +8,20 @@ from pyacoustics.schema import SSPModel
 # ==========================================
 
 @njit(fastmath=True)
-def evaluate_linear_ssp(z_q: float, z_arr: np.ndarray, c_arr: np.ndarray) -> tuple[float, float]:
+def evaluate_linear_ssp(z_q: float, z_arr: np.ndarray, c_arr: np.ndarray) -> tuple[float, float, float]:
     """
     Evaluates sound speed and gradient using piecewise linear interpolation.
-    Returns: (c, dc_dz)
+    Returns: (c, dc_dz, d2c_dz2)
     """
     n = len(z_arr)
-    # Handle out of bounds by clamping to endpoints
+    # Handle out of bounds by linear extrapolation from ends
     if z_q <= z_arr[0]:
-        c = c_arr[0]
         dc_dz = (c_arr[1] - c_arr[0]) / (z_arr[1] - z_arr[0])
+        c = c_arr[0] + dc_dz * (z_q - z_arr[0])
         return c, dc_dz, 0.0
     if z_q >= z_arr[-1]:
-        c = c_arr[-1]
         dc_dz = (c_arr[-1] - c_arr[-2]) / (z_arr[-1] - z_arr[-2])
+        c = c_arr[-1] + dc_dz * (z_q - z_arr[-1])
         return c, dc_dz, 0.0
         
     # Binary search for the correct interval
@@ -36,11 +36,11 @@ def evaluate_linear_ssp(z_q: float, z_arr: np.ndarray, c_arr: np.ndarray) -> tup
     return c, dc_dz, 0.0
 
 @njit(fastmath=True)
-def evaluate_spline_ssp(z_q: float, z_arr: np.ndarray, c_coeffs: np.ndarray) -> tuple[float, float]:
+def evaluate_spline_ssp(z_q: float, z_arr: np.ndarray, c_coeffs: np.ndarray) -> tuple[float, float, float]:
     """
     Evaluates sound speed and gradient using cubic spline coefficients.
     c_coeffs is expected to be shape (4, N-1) from scipy CubicSpline.
-    Returns: (c, dc_dz)
+    Returns: (c, dc_dz, d2c_dz2)
     """
     # Handle out of bounds by linear extrapolation from ends
     if z_q <= z_arr[0]:
@@ -51,10 +51,11 @@ def evaluate_spline_ssp(z_q: float, z_arr: np.ndarray, c_coeffs: np.ndarray) -> 
     if z_q >= z_arr[-1]:
         idx = len(z_arr) - 2
         dx = z_q - z_arr[idx]
-        c = c_coeffs[3, idx] + c_coeffs[2, idx] * dx + c_coeffs[1, idx] * dx**2 + c_coeffs[0, idx] * dx**3
-        dc_dz = c_coeffs[2, idx] + 2 * c_coeffs[1, idx] * dx + 3 * c_coeffs[0, idx] * dx**2
-        d2c_dz2 = 2 * c_coeffs[1, idx] + 6 * c_coeffs[0, idx] * dx
-        return c, dc_dz, d2c_dz2
+        # Linear extrapolation for spline consistency at boundaries
+        c_end = c_coeffs[3, idx] + c_coeffs[2, idx] * (z_arr[-1] - z_arr[idx]) + c_coeffs[1, idx] * (z_arr[-1] - z_arr[idx])**2 + c_coeffs[0, idx] * (z_arr[-1] - z_arr[idx])**3
+        dc_dz_end = c_coeffs[2, idx] + 2 * c_coeffs[1, idx] * (z_arr[-1] - z_arr[idx]) + 3 * c_coeffs[0, idx] * (z_arr[-1] - z_arr[idx])**2
+        c = c_end + dc_dz_end * (z_q - z_arr[-1])
+        return c, dc_dz_end, 0.0
 
     # Binary search
     idx = np.searchsorted(z_arr, z_q) - 1
@@ -64,6 +65,50 @@ def evaluate_spline_ssp(z_q: float, z_arr: np.ndarray, c_coeffs: np.ndarray) -> 
     c = c_coeffs[3, idx] + c_coeffs[2, idx] * dx + c_coeffs[1, idx] * dx**2 + c_coeffs[0, idx] * dx**3
     dc_dz = c_coeffs[2, idx] + 2 * c_coeffs[1, idx] * dx + 3 * c_coeffs[0, idx] * dx**2
     d2c_dz2 = 2 * c_coeffs[1, idx] + 6 * c_coeffs[0, idx] * dx
+    
+    return c, dc_dz, d2c_dz2
+
+@njit(fastmath=True)
+def evaluate_n2linear_ssp(z_q: float, z_arr: np.ndarray, c_arr: np.ndarray) -> tuple[float, float, float]:
+    """
+    Evaluates sound speed and gradient using n^2 linear interpolation.
+    1/c^2 is linear in z.
+    Returns: (c, dc_dz, d2c_dz2)
+    """
+    n = len(z_arr)
+    if z_q <= z_arr[0]:
+        n1sq = 1.0 / (c_arr[0] * c_arr[0])
+        n2sq = 1.0 / (c_arr[1] * c_arr[1])
+        dn2_dz = (n2sq - n1sq) / (z_arr[1] - z_arr[0])
+        nsq = n1sq + dn2_dz * (z_q - z_arr[0])
+        c = 1.0 / np.sqrt(nsq)
+        dc_dz = -0.5 * (c**3) * dn2_dz
+        d2c_dz2 = 0.75 * (c**5) * (dn2_dz**2)
+        return c, dc_dz, d2c_dz2
+        
+    if z_q >= z_arr[-1]:
+        n1sq = 1.0 / (c_arr[-2] * c_arr[-2])
+        n2sq = 1.0 / (c_arr[-1] * c_arr[-1])
+        dn2_dz = (n2sq - n1sq) / (z_arr[-1] - z_arr[-2])
+        nsq = n2sq + dn2_dz * (z_q - z_arr[-1])
+        c = 1.0 / np.sqrt(nsq)
+        dc_dz = -0.5 * (c**3) * dn2_dz
+        d2c_dz2 = 0.75 * (c**5) * (dn2_dz**2)
+        return c, dc_dz, d2c_dz2
+        
+    idx = np.searchsorted(z_arr, z_q) - 1
+    z1, z2 = z_arr[idx], z_arr[idx+1]
+    c1, c2 = c_arr[idx], c_arr[idx+1]
+    
+    n1sq = 1.0 / (c1 * c1)
+    n2sq = 1.0 / (c2 * c2)
+    
+    dn2_dz = (n2sq - n1sq) / (z2 - z1)
+    nsq = n1sq + dn2_dz * (z_q - z1)
+    
+    c = 1.0 / np.sqrt(nsq)
+    dc_dz = -0.5 * (c**3) * dn2_dz
+    d2c_dz2 = 0.75 * (c**5) * (dn2_dz**2)
     
     return c, dc_dz, d2c_dz2
 
@@ -88,7 +133,7 @@ class SSPInterpolator:
             cs = CubicSpline(self.z_arr, self.c_arr, bc_type='natural')
             self.c_coeffs = cs.c  # Shape: (4, N-1)
 
-    def evaluate(self, z: float) -> tuple[float, float]:
+    def evaluate(self, z: float) -> tuple[float, float, float]:
         """
         Python-level evaluation (useful for testing and plotting).
         For hot-loops, do not call this. Pass `z_arr`, `c_arr`, and `c_coeffs` 
@@ -98,5 +143,7 @@ class SSPInterpolator:
             return evaluate_linear_ssp(z, self.z_arr, self.c_arr)
         elif self.type == "spline":
             return evaluate_spline_ssp(z, self.z_arr, self.c_coeffs)
+        elif self.type == "n2-linear":
+            return evaluate_n2linear_ssp(z, self.z_arr, self.c_arr)
         else:
             raise NotImplementedError(f"SSP type {self.type} not implemented yet.")

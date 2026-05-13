@@ -1,6 +1,6 @@
 import numpy as np
 from numba import njit
-from pyacoustics.environment import evaluate_linear_ssp, evaluate_spline_ssp
+from pyacoustics.environment import evaluate_linear_ssp, evaluate_spline_ssp, evaluate_n2linear_ssp
 
 @njit(fastmath=True)
 def initialize_ray(r_0: float, z_0: float, alpha_deg: float, c_0: float) -> tuple[float, float, float, float, float]:
@@ -38,8 +38,10 @@ def step2d_kinematic(
     # 1. Evaluate SSP at current position
     if ssp_type == 0:
         c1, dc_dz1, _ = evaluate_linear_ssp(z, z_arr, c_arr)
-    else:
+    elif ssp_type == 1:
         c1, dc_dz1, _ = evaluate_spline_ssp(z, z_arr, c_coeffs)
+    else:
+        c1, dc_dz1, _ = evaluate_n2linear_ssp(z, z_arr, c_arr)
         
     dc_dr1 = 0.0 # Range independent for now
     
@@ -56,8 +58,10 @@ def step2d_kinematic(
     # 3. Evaluate SSP at half-step
     if ssp_type == 0:
         c_half, dc_dz_half, _ = evaluate_linear_ssp(z_half, z_arr, c_arr)
-    else:
+    elif ssp_type == 1:
         c_half, dc_dz_half, _ = evaluate_spline_ssp(z_half, z_arr, c_coeffs)
+    else:
+        c_half, dc_dz_half, _ = evaluate_n2linear_ssp(z_half, z_arr, c_arr)
         
     dc_dr_half = 0.0 # Range independent
     
@@ -92,8 +96,10 @@ def step2d_kinematic_dynamic(
     # 1. Evaluate SSP at current position
     if ssp_type == 0:
         c1, dc_dz1, d2c_dz2_1 = evaluate_linear_ssp(z, z_arr, c_arr)
-    else:
+    elif ssp_type == 1:
         c1, dc_dz1, d2c_dz2_1 = evaluate_spline_ssp(z, z_arr, c_coeffs)
+    else:
+        c1, dc_dz1, d2c_dz2_1 = evaluate_n2linear_ssp(z, z_arr, c_arr)
         
     dc_dr1 = 0.0 # Range independent for now
     
@@ -119,8 +125,10 @@ def step2d_kinematic_dynamic(
     # 3. Evaluate SSP at half-step
     if ssp_type == 0:
         c_half, dc_dz_half, d2c_dz2_half = evaluate_linear_ssp(z_half, z_arr, c_arr)
-    else:
+    elif ssp_type == 1:
         c_half, dc_dz_half, d2c_dz2_half = evaluate_spline_ssp(z_half, z_arr, c_coeffs)
+    else:
+        c_half, dc_dz_half, d2c_dz2_half = evaluate_n2linear_ssp(z_half, z_arr, c_arr)
         
     dc_dr_half = 0.0 # Range independent
     

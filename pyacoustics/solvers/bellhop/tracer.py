@@ -2,7 +2,7 @@ import numpy as np
 from numba import njit
 from pyacoustics.solvers.bellhop.step import initialize_ray, step2d_kinematic, step2d_kinematic_dynamic
 from pyacoustics.solvers.bellhop.boundary import check_boundary, compute_boundary_intersection, reflect_ray, reflect_ray_amp
-from pyacoustics.environment import evaluate_linear_ssp, evaluate_spline_ssp
+from pyacoustics.environment import evaluate_linear_ssp, evaluate_spline_ssp, evaluate_n2linear_ssp
 
 # Maximum number of steps per ray (safety limit)
 MAX_STEPS = 100000
@@ -35,8 +35,10 @@ def trace_single_ray(
     # Get initial sound speed
     if ssp_type == 0:
         c_0, _, _ = evaluate_linear_ssp(z_0, z_arr, c_arr)
-    else:
+    elif ssp_type == 1:
         c_0, _, _ = evaluate_spline_ssp(z_0, z_arr, c_coeffs)
+    else:
+        c_0, _, _ = evaluate_n2linear_ssp(z_0, z_arr, c_arr)
 
     # Initialize ray state
     r, z, xi, zeta, tau = initialize_ray(r_0, z_0, alpha_deg, c_0)
@@ -74,8 +76,10 @@ def trace_single_ray(
             # Interpolate c at the boundary to compute reflection coeff accurately
             if ssp_type == 0:
                 c_bnd, _, _ = evaluate_linear_ssp(z_bnd, z_arr, c_arr)
-            else:
+            elif ssp_type == 1:
                 c_bnd, _, _ = evaluate_spline_ssp(z_bnd, z_arr, c_coeffs)
+            else:
+                c_bnd, _, _ = evaluate_n2linear_ssp(z_bnd, z_arr, c_arr)
 
             # Reflect the ray and update amplitude
             zeta_new, R = reflect_ray_amp(
@@ -155,8 +159,10 @@ def trace_beam_ray(
     # Get initial sound speed and derivatives
     if ssp_type == 0:
         c_0, dc_dz_0, d2c_dz2_0 = evaluate_linear_ssp(z_0, z_arr, c_arr)
-    else:
+    elif ssp_type == 1:
         c_0, dc_dz_0, d2c_dz2_0 = evaluate_spline_ssp(z_0, z_arr, c_coeffs)
+    else:
+        c_0, dc_dz_0, d2c_dz2_0 = evaluate_n2linear_ssp(z_0, z_arr, c_arr)
 
     # Initialize ray state
     alpha_rad = np.radians(alpha_deg)
@@ -203,8 +209,10 @@ def trace_beam_ray(
             # Interpolate c at the boundary
             if ssp_type == 0:
                 c_bnd, _, _ = evaluate_linear_ssp(z_bnd, z_arr, c_arr)
-            else:
+            elif ssp_type == 1:
                 c_bnd, _, _ = evaluate_spline_ssp(z_bnd, z_arr, c_coeffs)
+            else:
+                c_bnd, _, _ = evaluate_n2linear_ssp(z_bnd, z_arr, c_arr)
 
             c_path[n_points] = c_bnd
 
@@ -240,8 +248,10 @@ def trace_beam_ray(
 
             if ssp_type == 0:
                 c_new, _, _ = evaluate_linear_ssp(z_new, z_arr, c_arr)
-            else:
+            elif ssp_type == 1:
                 c_new, _, _ = evaluate_spline_ssp(z_new, z_arr, c_coeffs)
+            else:
+                c_new, _, _ = evaluate_n2linear_ssp(z_new, z_arr, c_arr)
 
             c_path[n_points] = c_new
             p_path[n_points] = p_new
