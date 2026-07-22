@@ -1,20 +1,25 @@
 import numpy as np
 from numba import njit
-from .core import evaluate_dispersion
+from .core import evaluate_dispersion, evaluate_dispersion_media, evaluate_dispersion_media_complex
 
 @njit(fastmath=True)
 def bisection_search_roots(
     k2_min: float, k2_max: float, 
     h: float, B1: np.ndarray, 
     omega: float, bot_bc_type: int, bot_c_p: float, bot_rho: float, top_bc_type: int,
+    bot_c_s: float = 0.0, medium_rho: float = 1.0,
     tol: float = 1e-8, max_iter: int = 100
 ) -> np.ndarray:
     """
     Finds roots (eigenvalues k^2) using Sturm sequence and bisection.
     This guarantees finding all propagating modes between k2_min and k2_max.
     """
-    _, modes_min = evaluate_dispersion(k2_min, h, B1, omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type)
-    _, modes_max = evaluate_dispersion(k2_max, h, B1, omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type)
+    _, modes_min = evaluate_dispersion(
+        k2_min, h, B1, omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type, bot_c_s, medium_rho
+    )
+    _, modes_max = evaluate_dispersion(
+        k2_max, h, B1, omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type, bot_c_s, medium_rho
+    )
     
     M = modes_min - modes_max
     if M <= 0:
@@ -33,7 +38,9 @@ def bisection_search_roots(
             if (high - low) < tol:
                 break
                 
-            _, count_mid = evaluate_dispersion(mid, h, B1, omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type)
+            _, count_mid = evaluate_dispersion(
+                mid, h, B1, omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type, bot_c_s, medium_rho
+            )
             
             if count_mid >= target_mode_count_lower:
                 low = mid
@@ -49,6 +56,7 @@ def secant_search_roots(
     initial_guesses: np.ndarray,
     h: float, B1: np.ndarray,
     omega: float, bot_bc_type: int, bot_c_p: float, bot_rho: float, top_bc_type: int,
+    bot_c_s: float = 0.0, medium_rho: float = 1.0,
     tol: float = 1e-10, max_iter: int = 20
 ) -> np.ndarray:
     """
@@ -59,10 +67,14 @@ def secant_search_roots(
     
     for m in range(M):
         k2_0 = roots[m]
-        d0, _ = evaluate_dispersion(k2_0, h, B1, omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type)
+        d0, _ = evaluate_dispersion(
+            k2_0, h, B1, omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type, bot_c_s, medium_rho
+        )
         
         k2_1 = k2_0 * 1.0001 if k2_0 != 0 else 1e-6
-        d1, _ = evaluate_dispersion(k2_1, h, B1, omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type)
+        d1, _ = evaluate_dispersion(
+            k2_1, h, B1, omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type, bot_c_s, medium_rho
+        )
         
         for _ in range(max_iter):
             if abs(d1 - d0) < 1e-14:
@@ -75,7 +87,9 @@ def secant_search_roots(
                 k2_1 = k2_2
                 break
                 
-            d2, _ = evaluate_dispersion(k2_2, h, B1, omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type)
+            d2, _ = evaluate_dispersion(
+                k2_2, h, B1, omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type, bot_c_s, medium_rho
+            )
             
             k2_0 = k2_1
             d0 = d1
@@ -84,6 +98,105 @@ def secant_search_roots(
             
         roots[m] = k2_1
         
+    return roots
+
+
+@njit(fastmath=True)
+def bisection_search_roots_media(
+    k2_min: float, k2_max: float,
+    h: float, B1: np.ndarray,
+    omega: float, bot_bc_type: int, bot_c_p: float, bot_rho: float, top_bc_type: int,
+    media_start: np.ndarray, media_end: np.ndarray, media_rho: np.ndarray,
+    bot_c_s: float = 0.0,
+    tol: float = 1e-8, max_iter: int = 100
+) -> np.ndarray:
+    _, modes_min = evaluate_dispersion_media(
+        k2_min, h, B1, omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type,
+        media_start, media_end, media_rho, bot_c_s
+    )
+    _, modes_max = evaluate_dispersion_media(
+        k2_max, h, B1, omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type,
+        media_start, media_end, media_rho, bot_c_s
+    )
+
+    M = modes_min - modes_max
+    if M <= 0:
+        return np.zeros(0, dtype=np.float64)
+
+    roots = np.empty(M, dtype=np.float64)
+
+    for m in range(1, M + 1):
+        target_mode_count_lower = modes_max + m
+        low = k2_min
+        high = k2_max
+
+        for _ in range(max_iter):
+            mid = 0.5 * (low + high)
+            if (high - low) < tol:
+                break
+
+            _, count_mid = evaluate_dispersion_media(
+                mid, h, B1, omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type,
+                media_start, media_end, media_rho, bot_c_s
+            )
+
+            if count_mid >= target_mode_count_lower:
+                low = mid
+            else:
+                high = mid
+
+        roots[m - 1] = 0.5 * (low + high)
+
+    return roots
+
+
+@njit(fastmath=True)
+def secant_search_roots_media(
+    initial_guesses: np.ndarray,
+    h: float, B1: np.ndarray,
+    omega: float, bot_bc_type: int, bot_c_p: float, bot_rho: float, top_bc_type: int,
+    media_start: np.ndarray, media_end: np.ndarray, media_rho: np.ndarray,
+    bot_c_s: float = 0.0,
+    tol: float = 1e-10, max_iter: int = 20
+) -> np.ndarray:
+    M = len(initial_guesses)
+    roots = np.copy(initial_guesses)
+
+    for m in range(M):
+        k2_0 = roots[m]
+        d0, _ = evaluate_dispersion_media(
+            k2_0, h, B1, omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type,
+            media_start, media_end, media_rho, bot_c_s
+        )
+
+        k2_1 = k2_0 * 1.0001 if k2_0 != 0 else 1e-6
+        d1, _ = evaluate_dispersion_media(
+            k2_1, h, B1, omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type,
+            media_start, media_end, media_rho, bot_c_s
+        )
+
+        for _ in range(max_iter):
+            if abs(d1 - d0) < 1e-14:
+                break
+
+            k2_2 = k2_1 - d1 * (k2_1 - k2_0) / (d1 - d0)
+
+            if abs(k2_2 - k2_1) < tol:
+                k2_1 = k2_2
+                break
+
+            d2, _ = evaluate_dispersion_media(
+                k2_2, h, B1, omega, bot_bc_type, bot_c_p, bot_rho, top_bc_type,
+                media_start, media_end, media_rho, bot_c_s
+            )
+
+            k2_0 = k2_1
+            d0 = d1
+            k2_1 = k2_2
+            d1 = d2
+
+        roots[m] = k2_1
+
     return roots
 
 def neville_extrapolation(k2_sequences: list[np.ndarray], mesh_multipliers: list[int]) -> np.ndarray:
@@ -122,3 +235,114 @@ def neville_extrapolation(k2_sequences: list[np.ndarray], mesh_multipliers: list
             T[i, j, :] = T[i+1, j-1, :] + (T[i+1, j-1, :] - T[i, j-1, :]) / (ratio - 1.0)
             
     return T[0, N_sets - 1, :]
+
+
+def secant_search_roots_media_complex(
+    initial_guesses: np.ndarray,
+    h: float,
+    B1: np.ndarray,
+    omega: float,
+    bot_bc_type: int,
+    bot_c_p: float,
+    bot_rho: float,
+    top_bc_type: int,
+    media_start: np.ndarray,
+    media_end: np.ndarray,
+    media_rho: np.ndarray,
+    bot_c_s: float = 0.0,
+    bot_attenuation_p: float = 0.0,
+    bot_attenuation_s: float = 0.0,
+    c_top_inside: float | None = None,
+    rho_top_inside: float | None = None,
+    c_bot_inside: float | None = None,
+    rho_bot_inside: float | None = None,
+    top_reflection_table: np.ndarray | None = None,
+    bot_reflection_table: np.ndarray | None = None,
+    tol: float = 1e-10,
+    max_iter: int = 50,
+) -> np.ndarray:
+    """
+    Refine known mode eigenvalues in the complex k^2 plane.
+
+    This mirrors KRAKENC's complex secant stage: mode counting still comes
+    from the real-axis search, while loss/leakage is resolved by evaluating
+    the complex dispersion relation around each real-root initial guess.
+    """
+    roots = np.asarray(initial_guesses, dtype=np.complex128).copy()
+
+    for m in range(len(roots)):
+        x1 = roots[m]
+        if x1 == 0.0:
+            x1 = 1e-8 + 1e-12j
+        if x1.imag == 0.0:
+            x1 = x1 + 1j * max(abs(x1) * 1e-8, tol)
+
+        local_tol = max(tol, abs(x1) * len(B1) * 1e-14)
+        x0 = x1 + 100.0 * local_tol
+        f0 = evaluate_dispersion_media_complex(
+            x0,
+            h,
+            B1,
+            omega,
+            bot_bc_type,
+            bot_c_p,
+            bot_rho,
+            top_bc_type,
+            media_start,
+            media_end,
+            media_rho,
+            bot_c_s,
+            bot_attenuation_p,
+            bot_attenuation_s,
+            c_top_inside,
+            rho_top_inside,
+            c_bot_inside,
+            rho_bot_inside,
+            top_reflection_table,
+            bot_reflection_table,
+        )
+
+        for _ in range(max_iter):
+            f1 = evaluate_dispersion_media_complex(
+                x1,
+                h,
+                B1,
+                omega,
+                bot_bc_type,
+                bot_c_p,
+                bot_rho,
+                top_bc_type,
+                media_start,
+                media_end,
+                media_rho,
+                bot_c_s,
+                bot_attenuation_p,
+                bot_attenuation_s,
+                c_top_inside,
+                rho_top_inside,
+                c_bot_inside,
+                rho_bot_inside,
+                top_reflection_table,
+                bot_reflection_table,
+            )
+            denominator = f1 - f0
+            if abs(denominator) < 1e-30:
+                break
+
+            shift = f1 * (x1 - x0) / denominator
+            max_shift = 0.25 * max(abs(x1), local_tol)
+            if abs(shift) > max_shift:
+                shift *= max_shift / abs(shift)
+
+            x2 = x1 - shift
+            if abs(x2 - x1) + abs(x2 - x0) < local_tol:
+                x1 = x2
+                break
+
+            x0 = x1
+            f0 = f1
+            x1 = x2
+
+        roots[m] = x1
+
+    return roots

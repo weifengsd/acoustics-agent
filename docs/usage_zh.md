@@ -1,108 +1,90 @@
-# acoustics-agent 使用指南
+# 使用指南
 
-本指南将介绍如何使用 `acoustics-agent` 框架（基于 `pyacoustics` 引擎）进行水声数值仿真。
+本文介绍稳定的公开入口。各求解器参数和 AT 兼容细节见 [acoustics-agent_user_manual.md](acoustics-agent_user_manual.md)。
 
-## 1. 仿真结果可视化
-`acoustics-agent` 提供了开箱即用的高质量可视化工具。下图展示了一个典型的深海射线追踪仿真结果及其声速剖面（SSP）。
+## 配置场景
 
-![使用案例](assets/usage_example.png)
-*图 1：深海 Munk 声速剖面环境下的射线轨迹示例。左侧面板显示声速剖面，右侧面板显示声波的多径传播路径。*
-
-## 2. 配置文件 (YAML)
-`acoustics-agent` 使用 YAML 文件定义所有的仿真参数。一个典型的配置包含：
+场景采用 YAML，并直接映射到 `SimulationConfig`：
 
 ```yaml
-project: "Munk 仿真示例"
+project: Example waveguide
 frequency: 100.0
 environment:
   ssp:
-    type: "spline"
+    type: c-linear
     data:
-      - {depth: 0.0, c: 1548.52}
-      - {depth: 1000.0, c: 1501.38}
-      - {depth: 5000.0, c: 1551.91}
+      - {depth: 0.0, c: 1500.0}
+      - {depth: 200.0, c: 1500.0}
+  surface:
+    type: vacuum
+    depth: 0.0
   bottom:
-    type: "acousto-elastic"
-    depth: 5000.0
-    c_p: 1800.0
-    density: 1.8
+    type: rigid
+    depth: 200.0
 geometry:
   source:
-    depths: [1000.0]
+    depths: [100.0]
   receivers:
-    ranges: [0.0, 50000.0]
-    depths: [0.0, 5000.0]
+    ranges: [500.0, 1000.0]
+    depths: [50.0, 100.0, 150.0]
 solver:
-  type: "bellhop"
-  angles: [-20.0, 20.0]
-  num_beams: 1000
+  type: bellhop
+  angles: [-10.0, 10.0]
+  num_beams: 101
+  step_size: 5.0
 ```
 
-## 2. 使用 Simulation API
-`Simulation` 类负责加载配置、运行求解器以及绘图。
+最小可运行配置位于 `configs/example.yaml`。
+
+## 命令行
+
+```bash
+acoustics-agent run configs/example.yaml --ray-output output/example.ray --no-plot
+```
+
+常用参数：
+
+- `--mode native|legacy`：选择 Python 原生求解器或本机 AT。
+- `--at-bin-path PATH`：指定 legacy 模式使用的 AT 二进制目录。
+- `--ray-output PATH`：写出 AT-compatible ray 文件。
+- `--tl-output PATH`：计算并绘制 coherent TL。
+- `--no-plot`：不弹出交互图。
+
+## Python API
 
 ```python
+import numpy as np
+
 from pyacoustics.simulation import Simulation
 
-# 初始化
-sim = Simulation("path/to/config.yaml")
+sim = Simulation("configs/example.yaml")
+rays = sim.run(mode="native")
 
-# 运行射线追踪
-rays = sim.run()
-
-# 生成传播损失 (TL) 热力图
-sim.plot_tl("tl_field.png")
+ranges = np.linspace(100.0, 1000.0, 40)
+depths = np.linspace(0.0, 200.0, 30)
+coherent = sim.compute_coherent_tl(r_grid=ranges, z_grid=depths)
+incoherent = sim.compute_incoherent_tl(r_grid=ranges, z_grid=depths)
+semicoherent = sim.compute_semicoherent_tl(r_grid=ranges, z_grid=depths)
 ```
 
-## 3. 使用 Skills 技能库
-`skills/` 目录包含了专为 AI Agent 调用的工具，开发者也可以直接使用：
-
-- `make_env.py`: 从简单参数生成合法的 YAML 配置。
-- `run_sim.py`: 运行仿真并返回射线路径数据。
-- `plot_sim.py`: 生成可视化图表（射线轨迹或 TL 图）。
-
-示例：
-```python
-from skills.make_env import make_env
-from skills.run_sim import run_sim
-
-# 创建环境
-make_env("test.yaml", depth=4000, source_depth=100)
-
-# 运行
-rays = run_sim("test.yaml")
-```
-
-## 4. 自然语言编排 (Natural Language Orchestration)
-`pyacoustics` 的核心优势之一是它对 AI Agent 极其友好。你不需要编写代码或手动编辑 YAML，只需使用自然语言描述场景，Agent 即可调用 Skills 库完成全流程仿真。
-
-### 自然语言用例示例：
-- **浅海多径仿真**："帮我做一个浅海仿真。水深 100 米，等声速 1500m/s，声源放在 10 米深，频率 500Hz。计算到 10 公里远并画出声线图。"
-- **深海声道仿真**："使用 Munk 典型声速剖面跑一个深海仿真。声源放在 1000 米声道轴附近，计算 50 公里范围内的传播损失热力图。"
-- **基准校验**："帮我计算一个 Pekeris 波导环境。50 米水深，刚性海底，声源在海面附近。"
-- **自适应测试**："做一个 500 公里超远距离的深海仿真，频率 100Hz，帮我看看声线路径。"
-
-## 5. 求解器说明
-### PyBellhop (射线追踪)
-目前的默认求解器。支持特性：
-- **自适应步长**：根据仿真范围自动计算最优积分步长。
-- **插值算法**：支持 `c-linear` (分段线性) 或 `spline` (平滑三次样条) 声速剖面。
-- **边界条件**：支持 `vacuum` (真空), `rigid` (刚性), 以及 `acousto-elastic` (声弹性) 反射模型。
-
-### 计算准确性
-`acoustics-agent` 通过与权威的 Acoustics Toolbox 进行对标，确保了极高的计算精度。下图展示了原生 Python 引擎与传统 Fortran 版 AT 计算的传播损失 (TL) 的对比。
-
-![准确性对比](assets/calibK_TL_comparison.png)
-*图 2：基于简正波 (Normal Mode) 分析计算的传播损失 (TL) 准确性对比。原生 Python 实现 (PyKraken) 与传统 Acoustics Toolbox (Kraken) 的计算结果高度吻合。*
-
-### 传统求解器 (可选)
-为了与原始的 Fortran 版 Acoustics Toolbox (AT) 进行对标校验，您可以切换到 legacy 模式：
-
-1. 安装 AT 并设置 `AT_BIN_PATH` 环境变量。
-2. 调用 `.run(mode="legacy")`。
+Arrivals 和 eigenrays：
 
 ```python
-sim = Simulation("config.yaml")
-# 调用传统的 Bellhop 可执行程序运行
-results = sim.run(mode="legacy")
+arrivals = sim.compute_arrival_grid(method="beam")
+eigenrays = sim.run_eigenrays(range_m=1000.0, depth_m=100.0)
 ```
+
+## AT 一致性验证
+
+Native 仿真不依赖 AT。需要真实对比时运行：
+
+```bash
+export AT_BIN_PATH=/path/to/AcousticsToolbox/bin
+acoustics-at-benchmark --suite all --at-bin-path "$AT_BIN_PATH" --strict-at
+```
+
+Benchmark 默认写入被 Git 忽略的 `reports/at_benchmark/`，也可通过 `--output-dir` 指定其他位置。
+
+## Agent Skills
+
+`skills/` 提供创建环境、执行仿真和绘图的小型辅助函数。它们与 Python 调用共享同一份 schema 和 `Simulation` API，不维护第二套求解逻辑。

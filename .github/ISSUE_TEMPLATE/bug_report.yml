@@ -1,0 +1,31 @@
+name: Bug report
+description: Report a reproducible defect or numerical regression
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Include the smallest configuration and exact command or Python code.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the package version, Python version, operating system, solver mode, and AT version/path when relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Numerical evidence or logs
+      description: Include tolerances, sample counts, traceback, or a small output excerpt. Do not paste sensitive paths or data.

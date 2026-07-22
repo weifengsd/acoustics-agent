@@ -65,6 +65,48 @@ def from_dict(cls: Type[T], data: Any) -> T:
             
     return cls(**kwargs)
 
+
+def _resolve_path(base_dir: Path, maybe_path: str | Path) -> Path:
+    path = Path(maybe_path)
+    if not path.is_absolute():
+        path = base_dir / path
+    return path
+
+
+def _load_external_boundary_profiles(config: SimulationConfig, base_dir: Path) -> None:
+    from pyacoustics.solvers.external_io import read_at_ati, read_at_bty, read_at_reflection_table
+
+    bottom = config.environment.bottom
+    if bottom.bathymetry_file:
+        bty_path = _resolve_path(base_dir, bottom.bathymetry_file)
+        profile = read_at_bty(bty_path)
+        bottom.bathymetry = list(zip(profile.ranges_m.tolist(), profile.values_m.tolist()))
+        bottom.bathymetry_interpolation = profile.interpolation
+        if profile.geoacoustics is not None:
+            bottom.bathymetry_geoacoustics = [tuple(row) for row in profile.geoacoustics.tolist()]
+    if bottom.reflection_file:
+        brc_path = _resolve_path(base_dir, bottom.reflection_file)
+        table = read_at_reflection_table(brc_path)
+        bottom.reflection_table = list(
+            zip(table.angles_deg.tolist(), table.amplitudes.tolist(), table.phases_deg.tolist())
+        )
+
+    surface = config.environment.surface
+    if surface.altimetry_file:
+        ati_path = _resolve_path(base_dir, surface.altimetry_file)
+        profile = read_at_ati(ati_path)
+        surface.altimetry = list(zip(profile.ranges_m.tolist(), profile.values_m.tolist()))
+        surface.altimetry_interpolation = profile.interpolation
+        if profile.geoacoustics is not None:
+            surface.altimetry_geoacoustics = [tuple(row) for row in profile.geoacoustics.tolist()]
+    if surface.reflection_file:
+        irc_path = _resolve_path(base_dir, surface.reflection_file)
+        table = read_at_reflection_table(irc_path)
+        surface.reflection_table = list(
+            zip(table.angles_deg.tolist(), table.amplitudes.tolist(), table.phases_deg.tolist())
+        )
+
+
 class ConfigLoader:
     """Utility to load and validate YAML configurations using dataclasses."""
     
@@ -80,11 +122,16 @@ class ConfigLoader:
         with open(path, 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f)
             
-        return from_dict(SimulationConfig, data)
+        config = from_dict(SimulationConfig, data)
+        _load_external_boundary_profiles(config, path.parent)
+        return config
 
     @staticmethod
-    def from_dict(data: dict) -> SimulationConfig:
+    def from_dict(data: dict, base_dir: str | Path | None = None) -> SimulationConfig:
         """
         Loads configuration from a Python dictionary.
         """
-        return from_dict(SimulationConfig, data)
+        config = from_dict(SimulationConfig, data)
+        if base_dir is not None:
+            _load_external_boundary_profiles(config, Path(base_dir))
+        return config

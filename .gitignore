@@ -23,6 +23,17 @@ var/
 venv/
 ENV/
 .env
+.env.*
+!.env.example
+
+# Credentials and private keys
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets*.yaml
+secrets*.yml
 
 # MacOS
 .DS_Store
@@ -34,12 +45,35 @@ ENV/
 # Acoustics Agent output and bellhop files
 *.png
 !docs/assets/*.png
+!reports/at_benchmark/figures/
+!reports/at_benchmark/figures/*.png
 *.shd
 *.prt
 *.env
 *.bty
 *.ati
 *.ray
+*.ssp
+*.mod
 
 # Reference resources (Acoustics Toolbox source, GPL v3)
 res/
+
+# Scratch workspace
+scratch/
+
+# Generated knowledge graph output
+graphify-out/
+
+# Test and coverage caches
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Generated reports and runtime outputs
+reports/
+output/
+*.mat
+*.log
+*.tmp

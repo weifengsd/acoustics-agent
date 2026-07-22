@@ -5,10 +5,29 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "acoustics-agent"
 version = "0.1.0"
-description = "AI-Native Underwater Acoustic Simulation Framework"
+description = "Python-native underwater acoustic simulation framework with Acoustics Toolbox parity benchmarks"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
+authors = [
+    { name = "acoustics-agent contributors" },
+]
+keywords = [
+    "underwater-acoustics",
+    "acoustics-toolbox",
+    "bellhop",
+    "kraken",
+    "simulation",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Physics",
+]
 dependencies = [
     "numpy>=1.24.0",
     "scipy>=1.10.0",
@@ -16,6 +35,10 @@ dependencies = [
     "pyyaml>=6.0",
     "matplotlib>=3.7.0",
 ]
+
+[project.scripts]
+acoustics-agent = "pyacoustics.cli:main"
+acoustics-at-benchmark = "pyacoustics.benchmarks.runner:main"
 
 [project.optional-dependencies]
 dev = [
@@ -25,6 +48,25 @@ dev = [
     "isort",
     "flake8"
 ]
+report = [
+    "matplotlib>=3.7.0",
+]
+at = []
+
+[project.urls]
+Homepage = "https://github.com/weifengsd/acoustics-agent"
+Repository = "https://github.com/weifengsd/acoustics-agent"
+Documentation = "https://github.com/weifengsd/acoustics-agent/blob/main/docs/usage.md"
+Issues = "https://github.com/weifengsd/acoustics-agent/issues"
 
 [tool.setuptools]
-packages = ["pyacoustics", "pyacoustics.solvers", "pyacoustics.solvers.bellhop", "pyacoustics.solvers.kraken", "skills"]
+packages = [
+    "pyacoustics",
+    "pyacoustics.benchmarks",
+    "pyacoustics.postprocessing",
+    "pyacoustics.solvers",
+    "pyacoustics.solvers.bellhop",
+    "pyacoustics.solvers.bellhop3d",
+    "pyacoustics.solvers.kraken",
+    "skills",
+]

@@ -51,7 +51,15 @@ def plot_rays(config: SimulationConfig, ray_paths: List[Tuple[np.ndarray, np.nda
     ax2.set_title(f'Ray Trajectories ({config.project})')
     
     # Fill bottom
-    ax2.fill_between(ax2.get_xlim(), z_bottom, z_bottom * 1.1, color='saddlebrown', alpha=0.3)
+    bty = config.environment.bottom.bathymetry
+    if bty:
+        bty_arr = np.array(bty)
+        r_bty = bty_arr[:, 0] / 1000.0
+        z_bty = bty_arr[:, 1]
+        ax2.plot(r_bty, z_bty, color='saddlebrown', linewidth=2)
+        ax2.fill_between(r_bty, z_bty, max(z_bty) * 1.1, color='saddlebrown', alpha=0.3)
+    else:
+        ax2.fill_between(ax2.get_xlim(), z_bottom, z_bottom * 1.1, color='saddlebrown', alpha=0.3)
     
     plt.tight_layout()
     if save_path:

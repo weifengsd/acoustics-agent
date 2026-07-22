@@ -1,58 +1,93 @@
-# acoustics-agent: AI 原生水声仿真框架
+# acoustics-agent
 
-`acoustics-agent` 是一个现代化的水声仿真框架，旨在结合高性能物理计算与无缝的 AI 编排。其核心引擎为 **pyacoustics** —— 这是一个对传统 Acoustics Toolbox 的高性能纯 Python 重构。
+`acoustics-agent` 是一个 Python 原生水声仿真框架，提供 Bellhop 风格二维射线、Bellhop3D 三维传播、Kraken 简正波、声学后处理、Acoustics Toolbox（AT）文件读写，以及可复现的 AT/native 一致性验证工具。
 
-**官方网站**: [http://uacomm.com](http://uacomm.com)
+[English README](README.md) | [中文使用指南](docs/usage_zh.md) | [架构说明](docs/architecture.md) | [验证指南](docs/validation.md)
 
-## 🚀 核心特性
-- **高性能**：基于 Numba 加速的 **pyacoustics** 引擎，射线追踪速度可达 1000+ 条射线/秒。
-- **AI 原生**：内置模块化的 "Skills" 库，专为大语言模型 (LLM) 的自动化编排而设计。
-- **零依赖**：在标准的 Anaconda/Miniconda 环境下即可开箱即用，无需配置复杂的 Fortran 编译器。
-- **现代化工作流**：基于 YAML 的配置系统，彻底告别 legacy 系统繁琐的二进制或文本格式。
-- **兼容性**：原生支持调用传统的 **Acoustics Toolbox (AT)** 二进制文件，便于结果校验与对比。
-- **完备的测试集**：包含 27+ 个集成基准测试，涵盖 Munk, Pekeris, RAP 等经典声学场景。
+## 主要能力
 
-## 📁 项目结构
-- `pyacoustics/`: 核心物理引擎与求解器 (MIT 许可证)。
-- `skills/`: AI 编排层 (make_env, run_sim, plot_sim)。
-- `tests/`: 详尽的测试套件与环境基准。
-- `docs/`: 详细的设计与使用说明文档。
+- 基于 NumPy、SciPy 和 Numba 的 Python 原生求解器。
+- Bellhop 2D ray、eigenray、arrival、coherent、incoherent 和 semi-coherent TL。
+- Bellhop3D 射线、到达结构、三维地形和接收网格 TL。
+- Kraken/Field 简正波及声场合成。
+- 支持 `.env`、`.flp`、`.mod`、`.shd`、`.ati`、`.bty`、`.ssp`、`.irc`、`.trc`、`.brc`、`.sbp`、`.ray`、`.arr` 和 `.prt` 等 AT 格式。
+- 可选调用本机 AT 可执行程序进行真实一致性验证。
+- Delay-and-sum、Doppler 和 matched-filter 后处理。
+- YAML、Python API、命令行和 Agent Skills 多种入口。
 
-## 🛠 安装
-项目设计为在标准科学计算环境上“零额外依赖”。
+## 安装
+
+需要 Python 3.10 或更高版本：
+
 ```bash
-# 推荐：标准的 Anaconda 环境
-conda install numpy scipy numba pyyaml matplotlib
-```
-或者通过 pip 安装：
-```bash
-pip install -e .
+python -m pip install -e .
 ```
 
-### 可选的外部依赖
-若需与传统的 Bellhop/Kraken 保持完全的功能对齐，您可以可选地配置 **Acoustics Toolbox (AT)**：
-1. 从 [官方源](http://oalib.hlsresearch.com/AcousticsToolbox/) 下载或编译 AT 二进制文件。
-2. 设置 `AT_BIN_PATH` 环境变量指向您的 `at/bin` 目录。
-   ```bash
-   export AT_BIN_PATH=/path/to/at/bin
-   ```
+开发环境：
 
-## 📖 快速上手
-您可以使用内置的 Skills 库或高级 Simulation API 运行仿真：
+```bash
+python -m pip install -e ".[dev]"
+```
+
+AT 不是运行 native 求解器的必需依赖。需要 parity 验证时配置：
+
+```bash
+export AT_BIN_PATH=/path/to/AcousticsToolbox/bin
+```
+
+## 快速开始
+
+命令行运行示例：
+
+```bash
+acoustics-agent run configs/example.yaml --ray-output output/example.ray --no-plot
+```
+
+Python API：
 
 ```python
 from pyacoustics.simulation import Simulation
 
-# 从 YAML 配置文件运行
-sim = Simulation("tests/Munk/munk.yaml")
-sim.run()
-
-# 绘制结果
-sim.plot_tl("output.png")
+simulation = Simulation("configs/example.yaml")
+rays = simulation.run(mode="native")
+tl = simulation.compute_coherent_tl(num_r=200, num_z=100)
 ```
 
-## 🧪 测试
-运行完整的测试套件（27+ 个测试）：
+## 验证
+
+不依赖 AT 的快速检查：
+
 ```bash
-pytest tests/
+pytest tests/unit -q
 ```
+
+具备 AT 二进制时运行主 parity matrix：
+
+```bash
+acoustics-at-benchmark --suite all --at-bin-path "$AT_BIN_PATH" --strict-at
+```
+
+最近维护的基线覆盖 Bellhop 101 行、Kraken/Field 22 行、Bellhop3D 21 行、Field3D runtime 3 行、Postprocessing 11 行和 AT 文件格式 1192 行。该数字是历史基准证据，发布前仍应重新运行门禁。详细范围见 [验证指南](docs/validation.md)。
+
+## 仓库结构
+
+- `pyacoustics/`：求解器、AT I/O、benchmark 和后处理。
+- `configs/`：可复用 YAML 场景。
+- `skills/`：面向 Agent 的配置、运行和绘图辅助工具。
+- `tests/`：单元测试、集成测试和必要数值夹具。
+- `docs/`：使用、架构、验证与发布说明。
+- `tools/`：仓库维护工具。
+
+生成的 `reports/`、`scratch/`、构建产物、求解器输出和测试截图不进入版本控制。
+
+## 引用要求
+
+**科研引用要求：**论文、技术报告、基准测试、数据集及其他科研成果，如果实质性使用了 `acoustics-agent` 或由本项目生成的结果，应引用本软件仓库。可使用 GitHub 的 **Cite this repository** 功能，或按照 [CITATION.cff](CITATION.cff) 中的元数据引用。
+
+重新分发源代码或二进制文件时，还必须按照 [LICENSE](LICENSE) 保留版权和 MIT 许可声明。科研引用要求用于说明项目的署名期望，不改变 MIT License 的许可条款。
+
+## 参与贡献与许可
+
+提交 PR 前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。安全问题请按照 [SECURITY.md](SECURITY.md) 私下报告。
+
+Python 实现采用 [MIT License](LICENSE)。AT 是可选外部依赖，不随本项目分发；少量兼容性测试夹具采用独立许可，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

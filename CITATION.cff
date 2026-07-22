@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "Research outputs that materially use acoustics-agent or results produced by it should cite this software repository."
+title: "acoustics-agent"
+type: software
+authors:
+  - name: "acoustics-agent contributors"
+repository-code: "https://github.com/weifengsd/acoustics-agent"
+url: "https://github.com/weifengsd/acoustics-agent"
+license: MIT
+version: 0.1.0

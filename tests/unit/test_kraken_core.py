@@ -1,5 +1,8 @@
 import numpy as np
 import pytest
+from pyacoustics.benchmarks.at_presets import _rigid_pekeris_kraken_config
+from pyacoustics.schema import BoundaryCondition
+from pyacoustics.solvers.kraken import PyKraken
 from pyacoustics.solvers.kraken.core import build_acoustic_matrix, top_impedance, bottom_impedance, evaluate_dispersion
 
 def test_build_acoustic_matrix():
@@ -13,6 +16,52 @@ def test_build_acoustic_matrix():
     expected_B1 = -2.0 + (np.pi / 5)**2
     
     np.testing.assert_allclose(B1, [expected_B1, expected_B1])
+
+
+def test_elastic_bottom_impedance_matches_at_formula():
+    """Elastic half-space impedance should follow AT BCImpedance.f90 yV(4)/yV(2)."""
+    omega = 2 * np.pi * 50.0
+    c_p = 3000.0
+    c_s = 1200.0
+    rho = 2.0
+    k2 = (omega / 1300.0) ** 2
+
+    f, g = bottom_impedance(k2, omega, 3, c_p, rho, c_s)
+
+    gamma_s2 = k2 - (omega / c_s) ** 2
+    gamma_p2 = k2 - (omega / c_p) ** 2
+    gamma_s = np.sqrt(gamma_s2) if gamma_s2 > 0.0 else 0.0
+    gamma_p = np.sqrt(gamma_p2) if gamma_p2 > 0.0 else 0.0
+    mu = rho * c_s**2
+    expected_f = omega**2 * gamma_p * (k2 - gamma_s2)
+    expected_g = ((gamma_s2 + k2) ** 2 - 4.0 * gamma_s * gamma_p * k2) * mu
+
+    np.testing.assert_allclose(f, expected_f)
+    np.testing.assert_allclose(g, expected_g)
+
+
+def test_elastic_bottom_without_s_wave_falls_back_to_acoustic_halfspace():
+    omega = 2 * np.pi * 50.0
+    k2 = (omega / 1400.0) ** 2
+
+    f_acoustic, g_acoustic = bottom_impedance(k2, omega, 2, 1600.0, 1.8)
+    f_elastic, g_elastic = bottom_impedance(k2, omega, 3, 1600.0, 1.8, 0.0)
+
+    np.testing.assert_allclose([f_elastic, g_elastic], [f_acoustic, g_acoustic])
+
+
+def test_top_reflection_table_real_axis_fallback_matches_pressure_release():
+    assert top_impedance(4) == top_impedance(0)
+
+
+def test_rigid_surface_rigid_bottom_mode_count_matches_closed_form_band():
+    config = _rigid_pekeris_kraken_config()
+    config.environment.surface = BoundaryCondition(type="rigid")
+
+    result = PyKraken(config).run_normal_modes()
+
+    assert len(result["roots"]) == 7
+
 
 def test_ideal_waveguide_dispersion():
     """

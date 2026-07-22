@@ -1,0 +1,38 @@
+environment:
+  bottom:
+    attenuation_p: 0.5
+    depth: 5000.0
+    type: acousto-elastic
+  ssp:
+    data:
+    - c: 1548.52
+      depth: 0.0
+    - c: 1500.0
+      depth: 1000.0
+    - c: 1551.91
+      depth: 5000.0
+    type: c-linear
+frequency: 50.0
+geometry:
+  receivers:
+    depths:
+    - 0.0
+    - 5000.0
+    ranges:
+    - 0.0
+    - 10000.0
+  source:
+    depths:
+    - 1000.0
+project: Munk 3D Basic Test
+solver:
+  elevation_angles:
+  - -20.0
+  - 20.0
+  num_elevation_beams: 5
+  azimuth_angles:
+  - 0.0
+  - 360.0
+  num_azimuth_beams: 8
+  step_size: 10.0
+  type: bellhop3d

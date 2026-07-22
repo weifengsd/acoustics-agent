@@ -4,7 +4,9 @@ def compute_field(
     modes: np.ndarray, roots: np.ndarray, 
     z_arr: np.ndarray, r_arr: np.ndarray, 
     z_s: float, z_r_arr: np.ndarray, 
-    rho_s: float = 1.0
+    rho_s: float = 1.0,
+    field_option: str = "RA",
+    receiver_range_offsets_m: np.ndarray | None = None,
 ) -> np.ndarray:
     """
     Computes the Transmission Loss (TL) field using modal expansion.
@@ -16,6 +18,11 @@ def compute_field(
     z_s: source depth
     z_r_arr: shape (Z,) receiver depth grid
     rho_s: density at source depth
+    field_option: AT Field option string. The first character controls the
+        range normalization: ``R`` point source, ``X`` line source, or ``S``
+        scaled cylindrical point source.
+    receiver_range_offsets_m: optional range offset per receiver depth for
+        AT Field array tilt semantics.
     
     Returns: TL field shape (Z, R) in dB
     """
@@ -30,36 +37,52 @@ def compute_field(
     
     # Interpolate modes to source and receiver depths
     # We use linear interpolation for simplicity
-    phi_s = np.zeros(M, dtype=np.float64)
-    phi_r = np.zeros((M, Z), dtype=np.float64)
+    mode_dtype = np.result_type(modes.dtype, np.complex128)
+    phi_s = np.zeros(M, dtype=mode_dtype)
+    phi_r = np.zeros((M, Z), dtype=mode_dtype)
     
     for m in range(M):
         phi_s[m] = np.interp(z_s, z_arr, modes[m, :])
         phi_r[m, :] = np.interp(z_r_arr, z_arr, modes[m, :])
         
-    # Pre-calculate constant terms
-    # To match AT (Acoustics Toolbox) point source normalization:
-    # The pressure should be multiplied by sqrt(2*pi) / rho_s
-    const_factor = np.sqrt(2.0 * np.pi) / rho_s
+    option0 = (field_option or "RA").strip().upper()[:1] or "R"
+    if option0 not in {"R", "X", "S"}:
+        raise ValueError("Kraken field_option must start with 'R', 'X', or 'S'")
+
+    const_factor = np.sqrt(2.0 * np.pi)
     
     pressure = np.zeros((Z, R), dtype=np.complex128)
-    
-    # Avoid division by zero at r=0
-    r_safe = np.where(r_arr == 0, 1e-10, r_arr)
-    cylindrical_spreading = 1.0 / np.sqrt(r_safe)
+
+    if receiver_range_offsets_m is None:
+        range_offsets = np.zeros(Z, dtype=np.float64)
+    else:
+        range_offsets = np.asarray(receiver_range_offsets_m, dtype=np.float64)
+        if range_offsets.size == 1:
+            range_offsets = np.full(Z, float(range_offsets[0]), dtype=np.float64)
+        elif range_offsets.size != Z:
+            raise ValueError("receiver_range_offsets_m must have length 1 or match receiver depths")
     
     # Mode sum
     for m in range(M):
         # shape (1, R)
-        range_phase = np.exp(1j * k_m[m] * r_arr) / np.sqrt(k_m[m])
+        if option0 == "X":
+            modal_norm = k_m[m]
+        else:
+            modal_norm = np.sqrt(k_m[m])
+        range_phase = np.exp(1j * k_m[m] * (r_arr.reshape(1, -1) + range_offsets.reshape(-1, 1))) / modal_norm
         # shape (Z, 1)
         depth_amp = (phi_s[m] * phi_r[m, :]).reshape(-1, 1)
         
         # Outer product sum
-        pressure += depth_amp @ range_phase.reshape(1, -1)
+        pressure += depth_amp * range_phase
         
     # Apply constants and spreading
-    pressure *= const_factor * cylindrical_spreading.reshape(1, -1)
+    if option0 == "R":
+        r_eff = r_arr.reshape(1, -1) + range_offsets.reshape(-1, 1)
+        r_safe = np.where(np.abs(r_eff) <= 1.0e-10, 1.0e-10, np.abs(r_eff))
+        pressure *= const_factor / np.sqrt(r_safe)
+    else:
+        pressure *= const_factor
     
     # Calculate TL
     # If pressure is 0, clip to a small number to avoid log10(0)

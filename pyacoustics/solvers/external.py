@@ -59,7 +59,7 @@ class ExternalSolver:
         if exe_path_with_ext.exists():
             return True
             
-        return shutil.who(exe_name, path=str(self.bin_path)) is not None
+        return shutil.which(exe_name, path=str(self.bin_path)) is not None
 
     def run_command(self, cmd_args: list[str], cwd: str, stdin_input: str = None):
         """Runs the external command and handles errors."""
@@ -121,6 +121,27 @@ class BellhopExternal(ExternalSolver):
 
 class KrakenExternal(ExternalSolver):
     """Wrapper for the legacy Kraken normal mode solver."""
+
+    @staticmethod
+    def _needs_krakenc(config: SimulationConfig) -> bool:
+        """Return True when the AT complex normal-mode solver is required."""
+        ssp_layers = getattr(config.environment.ssp, "data", []) or []
+        if any((getattr(layer, "attenuation", None) or 0.0) > 0.0 for layer in ssp_layers):
+            return True
+
+        bottom = config.environment.bottom
+        if (getattr(bottom, "attenuation_p", None) or 0.0) > 0.0:
+            return True
+        if (getattr(bottom, "attenuation_s", None) or 0.0) > 0.0:
+            return True
+        if getattr(bottom, "reflection_table", None) is not None:
+            return True
+
+        surface = getattr(config.environment, "surface", None)
+        if surface is not None and getattr(surface, "reflection_table", None) is not None:
+            return True
+
+        return False
     
     def run(self):
         """
@@ -140,20 +161,16 @@ class KrakenExternal(ExternalSolver):
             # 1. Generate Input Files
             generate_at_kraken_env(self.config, env_file)
             generate_at_field_flp(self.config, flp_file)
-            import shutil
-            debug_dir = Path("/Users/fengwei/VibeWorking/Coding/acoustics-agent-app/debug_output")
-            debug_dir.mkdir(exist_ok=True)
-            shutil.copy(env_file, debug_dir / "app_last.env")
-            shutil.copy(flp_file, debug_dir / "app_last.flp")
-            
 
-            
-            # 2. Run Kraken (or Krakenc for complex)
-            # If there's attenuation or complex BC, we should use krakenc
-            is_complex = False
-            if self.config.environment.bottom.attenuation_p > 0:
-                is_complex = True
-            
+            debug_dir_value = os.environ.get("ACOUSTICS_AGENT_DEBUG_DIR")
+            debug_dir = Path(debug_dir_value).expanduser() if debug_dir_value else None
+            if debug_dir is not None:
+                debug_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy(env_file, debug_dir / "app_last.env")
+                shutil.copy(flp_file, debug_dir / "app_last.flp")
+
+            # 2. Run Kraken (or Krakenc for lossy/complex boundary cases)
+            is_complex = self._needs_krakenc(self.config)
             exe_name = "krakenc" if is_complex else "kraken"
             exe_path = self.bin_path / exe_name
             if not exe_path.exists():
@@ -172,7 +189,7 @@ class KrakenExternal(ExternalSolver):
                 stdin_input=f"{case_name}\n"
             )
             mod_file = tmp_path / f"{case_name}.mod"
-            if mod_file.exists():
+            if mod_file.exists() and debug_dir is not None:
                 shutil.copy(mod_file, debug_dir / "app_last.mod")
             
 
